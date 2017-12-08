@@ -1,0 +1,97 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Drawing;
+using System.Data;
+using System.Linq;
+using System.Text;
+using System.Windows.Forms;
+using Stim.Eva.Core;
+using Medeas.Retail.GuiLogik.Warensteuerung.ArtikelCockpit;
+using Stim.Eva.Gui;
+using Medeas.Framework.Gui.Controls;
+
+
+/* Diese Datei hat mehrere so genannte 'Code Smells'. Bitte analysiere die Datei und gebe zu vermeindlich schwachen Stellen ein kurzes
+ * Kommentar ab. Es ist klar das die Abhängigkeiten unbekannt sind, es geht eher um das Gesamtbild */
+
+
+namespace Medeas.Retail.Gui.Warensteuerung.ArtikelCockpit {
+	[ToolboxItem(true)]
+	public partial class ArtikelCockpitSelektion : Medeas.Framework.Gui.Workflow.Controls.BaseUserActivityControl {
+		public ArtikelCockpitSelektion() {
+			InitializeComponent();
+		}
+
+		public event KeyEventHandler OnKeyDown;
+
+		private void ExecuteRefresh() {
+			var notificationService = (IActivityNotificationService)
+					Application.ApplicationSpace.GetService(typeof(IActivityNotificationService));
+
+			try {
+				if(notificationService != null)
+					notificationService.Start(this, true);
+
+				ArtikelCockpitSelektionParent parent = view.DataInstance as ArtikelCockpitSelektionParent;
+				ArtikelCockpitParent artikelCockpitParent = null;
+
+				if(parent != null) {
+					artikelCockpitParent = parent.ArtikelCockpitEdit.ArtikelCockpitParent;
+
+					bool ok = false;
+
+					if(artikelCockpitParent != null)
+						ok = artikelCockpitParent.CanExecuteQuery();
+
+					if(ok) {
+						artikelCockpitParent.ClearDokumente();
+						artikelCockpitParent.ExecuteRefresh();
+					}
+				}
+			}
+			finally {
+				if(notificationService != null)
+					notificationService.Stop(this);
+			}
+		}
+
+		private void ClearSelection() {
+			ArtikelCockpitSelektionParent parent = view.DataInstance as ArtikelCockpitSelektionParent;
+			parent.ClearSelection();
+		}
+
+		private void _scanEan_KeyDown(object sender, KeyEventArgs e) {
+			TextEdit scanEan = sender as TextEdit;
+
+			string scanCode = "";
+
+			
+			scanCode = scanEan.Text;
+
+			using(ITransaction trans = Application.BeginTransaction()) {
+				if(e.KeyCode == Keys.F5 || (e.KeyCode == Keys.Enter && scanCode != "")) {
+					ExecuteRefresh();
+					e.Handled = true;
+					scanEan.SelectAll();
+				}
+				else if(e.KeyCode == Keys.Escape)
+					ClearSelection();
+			}
+		}
+
+		private void _artikelCockpitSelektion_KeyDown(object sender, KeyEventArgs e) {
+			using(ITransaction trans = Application.BeginTransaction()) {
+				if(e.KeyCode != Keys.F5) {
+					OnKeyDown(sender, e);
+				}
+
+				if(e.KeyCode == Keys.F5) {
+					ExecuteRefresh();
+				}
+				else if(e.KeyCode == Keys.Escape)
+					ClearSelection();
+			}
+		}
+	}
+}
